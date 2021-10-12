@@ -1,5 +1,13 @@
 import React, { Component } from "react";
-import { Card, Form, Button, Container, Row, Col } from "react-bootstrap";
+import {
+  Card,
+  Form,
+  Button,
+  Container,
+  Row,
+  Col,
+  Table,
+} from "react-bootstrap";
 let crypto;
 try {
   crypto = require("crypto");
@@ -234,32 +242,6 @@ class Home extends Component {
               <Col>
                 <Card className="box">
                   <Card.Body>
-                    <Card.Title tag="h5">Mining Node Current Block</Card.Title>
-                    <Card.Subtitle tag="h6" className="mb-2 text-muted">
-                      Block Hash:{" "}
-                      {this.state.curr_mining_node_block
-                        ? "..." +
-                          this.state.curr_mining_node_block.block_hash.slice(
-                            -10
-                          )
-                        : " "}
-                    </Card.Subtitle>
-                    <Card.Text>
-                      Solution Hash:{" "}
-                      {this.state.curr_mining_node_block
-                        ? "..." +
-                          this.state.curr_mining_node_block.solution_hash.slice(
-                            -10
-                          )
-                        : " "}
-                    </Card.Text>
-                    <Button>Details</Button>
-                  </Card.Body>
-                </Card>
-              </Col>
-              <Col>
-                <Card className="box">
-                  <Card.Body>
                     <Card.Title tag="h5">Commit Node Current Block</Card.Title>
                     <Card.Subtitle tag="h6" className="mb-2 text-muted">
                       Block Hash:{" "}
@@ -279,7 +261,46 @@ class Home extends Component {
                           )
                         : " "}
                     </Card.Text>
-                    <Button>Details</Button>
+                    <Table striped bordered responsive size="sm">
+                      <thead>
+                        <tr>
+                          <th>#</th>
+                          <th>Hash</th>
+                          <th>Status</th>
+                          <th>Source</th>
+                          <th>Amount</th>
+                          <th>Destination</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {this.state.curr_commit_node_block
+                          ? this.state.curr_commit_node_block.confirmed_transactions.map(
+                              function (txn, index) {
+                                return (
+                                  <tr>
+                                    <td>{txn.transaction_index}</td>
+                                    <td>
+                                      {"..." + txn.transaction_hash.slice(-10)}
+                                    </td>
+                                    <td>{txn.status}</td>
+                                    <td>{txn.sender}</td>
+                                    <td>
+                                      {txn.amount != null
+                                        ? txn.amount
+                                        : "Not yet disclosed"}
+                                    </td>
+                                    <td>
+                                      {txn.destination
+                                        ? txn.destination
+                                        : "Not yet disclosed"}
+                                    </td>
+                                  </tr>
+                                );
+                              }
+                            )
+                          : null}
+                      </tbody>
+                    </Table>
                   </Card.Body>
                 </Card>
               </Col>
@@ -307,7 +328,111 @@ class Home extends Component {
                           )
                         : " "}
                     </Card.Text>
-                    <Button>Details</Button>
+                    <Table striped bordered responsive size="sm">
+                      <thead>
+                        <tr>
+                          <th>#</th>
+                          <th>Hash</th>
+                          <th>Status</th>
+                          <th>Source</th>
+                          <th>Amount</th>
+                          <th>Destination</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {this.state.curr_clearing_node_block
+                          ? this.state.curr_clearing_node_block.confirmed_transactions.map(
+                              function (txn, index) {
+                                return (
+                                  <tr>
+                                    <td>{txn.transaction_index}</td>
+                                    <td>
+                                      {"..." + txn.transaction_hash.slice(-10)}
+                                    </td>
+                                    <td>{txn.status}</td>
+                                    <td>{txn.sender}</td>
+                                    <td>
+                                      {txn.amount != null
+                                        ? txn.amount
+                                        : "Not yet disclosed"}
+                                    </td>
+                                    <td>
+                                      {txn.destination
+                                        ? txn.destination
+                                        : "Not yet disclosed"}
+                                    </td>
+                                  </tr>
+                                );
+                              }
+                            )
+                          : null}
+                      </tbody>
+                    </Table>
+                  </Card.Body>
+                </Card>
+              </Col>
+              <Col>
+                <Card className="box">
+                  <Card.Body>
+                    <Card.Title tag="h5">Mining Node Current Block</Card.Title>
+                    <Card.Subtitle tag="h6" className="mb-2 text-muted">
+                      Block Hash:{" "}
+                      {this.state.curr_mining_node_block
+                        ? "..." +
+                          this.state.curr_mining_node_block.block_hash.slice(
+                            -10
+                          )
+                        : " "}
+                    </Card.Subtitle>
+                    <Card.Text>
+                      Solution Hash:{" "}
+                      {this.state.curr_mining_node_block
+                        ? "..." +
+                          this.state.curr_mining_node_block.solution_hash.slice(
+                            -10
+                          )
+                        : " "}
+                    </Card.Text>
+                    <Table striped bordered responsive size="sm">
+                      <thead>
+                        <tr>
+                          <th>#</th>
+                          <th>Hash</th>
+                          <th>Status</th>
+                          <th>Source</th>
+                          <th>Amount</th>
+                          <th>Destination</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {this.state.curr_mining_node_block
+                          ? this.state.curr_mining_node_block.confirmed_transactions.map(
+                              function (txn, index) {
+                                return (
+                                  <tr>
+                                    <td>{txn.transaction_index}</td>
+                                    <td>
+                                      {"..." + txn.transaction_hash.slice(-10)}
+                                    </td>
+                                    <td>{txn.status}</td>
+                                    <td>{txn.sender}</td>
+                                    <td>
+                                      {txn.amount != null
+                                        ? txn.amount
+                                        : "Not yet disclosed"}
+                                    </td>
+                                    <td>
+                                      {txn.destination
+                                        ? txn.destination
+                                        : "Not yet disclosed"}
+                                    </td>
+                                  </tr>
+                                );
+                              }
+                            )
+                          : null}
+                      </tbody>
+                    </Table>
                   </Card.Body>
                 </Card>
               </Col>
