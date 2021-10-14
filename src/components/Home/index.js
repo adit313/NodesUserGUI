@@ -125,66 +125,15 @@ class Home extends Component {
   }
 
   onSubmitBtnClick() {
-    const inputElement = document.getElementById("keyTextInput");
-    console.log("clicked");
-    const sign = crypto.createSign("RSA-SHA256");
-    let forge = require("node-forge");
-    let pki = require("node-forge").pki;
-    let privateKey = pki.privateKeyFromPem(inputElement.value);
-    let publicKey = pki.setRsaPublicKey(privateKey.n, privateKey.e);
-
-    let public_key_string = JSON.stringify(
-      pki.publicKeyToPem(publicKey)
-    ).replaceAll("\\r", "");
-    public_key_string = JSON.parse(public_key_string);
-    console.log(public_key_string);
-    var md2 = forge.md.sha256.create();
-    md2.update(public_key_string);
-    console.log(Buffer.from(md2.digest().toHex(), "hex").toString("base64"));
-
-    let sender_public_key = public_key_string;
-    let sender = Buffer.from(md2.digest().toHex(), "hex").toString("base64");
-
-    var md_transaction_hash = forge.md.sha256.create();
-    var amount = 10.0;
-    var hash_amount_string = String(amount);
-    if (amount % 1 === 0) {
-      hash_amount_string = String(amount) + ".0";
-    }
-    var destination = "0aKRMjy4GmRKZ2Ui4Zc8z9fqYOLTzwu9QD/JkGLd5Qw=";
-    var tx_fee = 0.0;
-    var hash_tx_fee_string = String(tx_fee);
-    if (tx_fee % 1 === 0) {
-      hash_tx_fee_string = String(tx_fee) + ".0";
-    }
-    var nonce = String(4);
-
-    md_transaction_hash.update(
-      hash_amount_string +
-        destination +
-        nonce +
-        sender +
-        sender_public_key +
-        hash_tx_fee_string
-    );
-
-    let temp = JSON.stringify(md_transaction_hash.digest().toHex());
-    let transaction_hash = JSON.parse(temp);
-
-    sign.write(transaction_hash);
-    sign.end();
-    let sig = sign.sign(inputElement.value, "hex");
-    console.log(sig);
-
     let payload = {
       amount: null,
       destination: null,
-      transaction_hash: transaction_hash,
-      sender: sender,
-      sender_public_key: sender_public_key,
-      sender_signature: sig,
-      tx_fee: hash_tx_fee_string,
-      nonce: nonce,
+      transaction_hash: this.state.transaction_hash,
+      sender: this.state.sender,
+      sender_public_key: this.state.sender_public_key,
+      sender_signature: this.state.sender_signature,
+      tx_fee: this.state.tx_fee,
+      nonce: this.state.nonce,
     };
 
     fetch("http://commit.stardust.finance/new_transaction", {
@@ -354,12 +303,12 @@ class Home extends Component {
                                     <td>
                                       {txn.amount != null
                                         ? txn.amount
-                                        : "Not yet disclosed"}
+                                        : "Listening for Updates"}
                                     </td>
                                     <td>
                                       {txn.destination
                                         ? txn.destination
-                                        : "Not yet disclosed"}
+                                        : "Listening for Updates"}
                                     </td>
                                   </tr>
                                 );
