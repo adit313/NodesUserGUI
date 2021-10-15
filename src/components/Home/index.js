@@ -1,5 +1,6 @@
 import React, { Component } from "react";
 import {
+  Alert,
   Card,
   Form,
   Button,
@@ -19,6 +20,7 @@ class Home extends Component {
   constructor(props) {
     super(props);
     this.state = {
+      balance: "n/a",
       block_ids: [],
       block_hashes: [],
       curr_commit_node_block: null,
@@ -34,16 +36,74 @@ class Home extends Component {
       sender_signature: null,
       tx_fee: null,
       nonce: null,
+      validated: null,
+      showAlert: false,
+      alertMessage: "",
+      alertVariant: "danger",
     };
 
     this.onPrepareBtnClick = this.onPrepareBtnClick.bind(this);
     this.onSubmitBtnClick = this.onSubmitBtnClick.bind(this);
+    this.onUseOurKeyClicked = this.onUseOurKeyClicked.bind(this);
   }
 
   onPrepareBtnClick() {
+    this.setState({
+      alertMessage: "",
+      showAlert: false,
+    });
+
     const inputElement = document.getElementById("keyTextInput");
-    console.log("clicked");
-    if (inputElement.value.startsWith("-----BEGIN RSA PRIVATE KEY-----")) {
+    const tx_fee_input = document.getElementById("txFee");
+    const tx_amount_input = document.getElementById("txAmount");
+    const tx_destination_input = document.getElementById("txDestination");
+    var checks = true;
+
+    if (
+      tx_fee_input.value === "" ||
+      !/^\d+\.\d+$|^\d+$/.test(tx_fee_input.value)
+    ) {
+      checks = false;
+      this.setState({
+        alertMessage: "Transaction Fee is a required field and must be numeric",
+        showAlert: true,
+        alertVariant: "danger",
+      });
+    }
+
+    if (
+      tx_destination_input.value === "" ||
+      tx_destination_input.value.length !== 44 ||
+      !/^([0-9a-zA-Z+/]{4})*(([0-9a-zA-Z+/]{2}==)|([0-9a-zA-Z+/]{3}=))?$/.test(
+        tx_destination_input.value
+      )
+    ) {
+      checks = false;
+      this.setState({
+        alertMessage:
+          "Transaction destination is a required field and must be a valid base64 sting",
+        showAlert: true,
+        alertVariant: "danger",
+      });
+    }
+
+    if (
+      tx_amount_input.value === "" ||
+      !/^\d+\.\d+$|^\d+$/.test(tx_amount_input.value)
+    ) {
+      checks = false;
+      this.setState({
+        alertMessage:
+          "Transaction amount is a required field and must be numeric",
+        showAlert: true,
+        alertVariant: "danger",
+      });
+    }
+
+    if (
+      inputElement.value.startsWith("-----BEGIN RSA PRIVATE KEY-----") &&
+      checks
+    ) {
       const sign = crypto.createSign("RSA-SHA256");
       let forge = require("node-forge");
       let pki = require("node-forge").pki;
@@ -55,13 +115,8 @@ class Home extends Component {
           pki.publicKeyToPem(publicKey)
         ).replaceAll("\\r", "");
         public_key_string = JSON.parse(public_key_string);
-        console.log(public_key_string);
         var md2 = forge.md.sha256.create();
         md2.update(public_key_string);
-        console.log(
-          Buffer.from(md2.digest().toHex(), "hex").toString("base64")
-        );
-
         let sender_public_key = public_key_string;
         let sender = Buffer.from(md2.digest().toHex(), "hex").toString(
           "base64"
@@ -71,56 +126,62 @@ class Home extends Component {
             encodeURIComponent(sender)
         )
           .then((response) => response.json())
-          .then((data) =>
-            this.setState({ nonce: parseInt(data["highest_nonce"], 10) + 1 })
-          );
+          .then((data) => {
+            var balance = parseFloat(data["confirmed_balance"]);
+            var nonce = 1;
+            if (data && data["highest_nonce"]) {
+              nonce = parseInt(data["highest_nonce"], 10) + 1;
+            }
+            var md_transaction_hash = forge.md.sha256.create();
+            var amount = parseFloat(tx_amount_input.value);
+            var hash_amount_string = String(amount);
+            if (amount % 1 === 0) {
+              hash_amount_string = String(amount) + ".0";
+            }
+            var destination = tx_destination_input.value;
+            var tx_fee = parseFloat(tx_fee_input.value);
+            var hash_tx_fee_string = String(tx_fee);
+            if (tx_fee % 1 === 0) {
+              hash_tx_fee_string = String(tx_fee) + ".0";
+            }
 
-        var md_transaction_hash = forge.md.sha256.create();
-        var amount = 10.0;
-        var hash_amount_string = String(amount);
-        if (amount % 1 === 0) {
-          hash_amount_string = String(amount) + ".0";
-        }
-        var destination = "0aKRMjy4GmRKZ2Ui4Zc8z9fqYOLTzwu9QD/JkGLd5Qw=";
-        var tx_fee = 0.0;
-        var hash_tx_fee_string = String(tx_fee);
-        if (tx_fee % 1 === 0) {
-          hash_tx_fee_string = String(tx_fee) + ".0";
-        }
-        var nonce = String(4);
+            md_transaction_hash.update(
+              hash_amount_string +
+                destination +
+                nonce +
+                sender +
+                sender_public_key +
+                hash_tx_fee_string
+            );
 
-        md_transaction_hash.update(
-          hash_amount_string +
-            destination +
-            nonce +
-            sender +
-            sender_public_key +
-            hash_tx_fee_string
-        );
+            let temp = JSON.stringify(md_transaction_hash.digest().toHex());
+            let transaction_hash = JSON.parse(temp);
 
-        let temp = JSON.stringify(md_transaction_hash.digest().toHex());
-        let transaction_hash = JSON.parse(temp);
-
-        sign.write(transaction_hash);
-        sign.end();
-        let sig = sign.sign(inputElement.value, "hex");
-        console.log(sig);
-        this.setState({
-          amount: null,
-          destination: null,
-          transaction_hash: transaction_hash,
-          sender: sender,
-          sender_public_key: sender_public_key,
-          sender_signature: sig,
-          tx_fee: hash_tx_fee_string,
-          nonce: nonce,
-          submit_disabled: false,
-        });
+            sign.write(transaction_hash);
+            sign.end();
+            let sig = sign.sign(inputElement.value, "hex");
+            this.setState({
+              amount: hash_amount_string,
+              balance: balance,
+              destination: destination,
+              transaction_hash: transaction_hash,
+              sender: sender,
+              sender_public_key: sender_public_key,
+              sender_signature: sig,
+              tx_fee: hash_tx_fee_string,
+              nonce: nonce,
+              submit_disabled: false,
+              alertMessage: "",
+              showAlert: false,
+            });
+          });
       } catch (e) {
-        console.log("Invalid private key");
+        this.setState({
+          alertMessage: "Invalid private key",
+          showAlert: true,
+          alertVariant: "danger",
+        });
       }
-    } else {
-      console.log("Invalid private key");
     }
   }
 
@@ -136,12 +197,25 @@ class Home extends Component {
       nonce: this.state.nonce,
     };
 
-    fetch("http://commit.stardust.finance/new_transaction", {
+    fetch("https://mining.stardust.finance/new_transaction", {
       method: "POST",
       body: JSON.stringify(payload),
-    }).then((res) => {
-      console.log("Request complete! response:", res);
-    });
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        this.setState({
+          alertMessage: data[0],
+          showAlert: true,
+          alertVariant: "info",
+        });
+        fetch("https://mining.stardust.finance/unconfirmed_transactions/0")
+          .then((response) => response.json())
+          .then((data) =>
+            this.setState({
+              curr_mining_node_block: data,
+            })
+          );
+      });
   }
 
   componentDidMount() {
@@ -152,7 +226,7 @@ class Home extends Component {
           curr_commit_node_block: data,
         })
       );
-    fetch("https://mining.stardust.finance/current_block")
+    fetch("https://mining.stardust.finance/unconfirmed_transactions")
       .then((response) => response.json())
       .then((data) =>
         this.setState({
@@ -210,7 +284,7 @@ class Home extends Component {
                           )
                         : " "}
                     </Card.Text>
-                    <Table striped bordered responsive size="sm">
+                    <Table hover striped bordered responsive size="sm">
                       <thead>
                         <tr>
                           <th>#</th>
@@ -226,7 +300,7 @@ class Home extends Component {
                           ? this.state.curr_commit_node_block.confirmed_transactions.map(
                               function (txn, index) {
                                 return (
-                                  <tr>
+                                  <tr key={index}>
                                     <td>{txn.transaction_index}</td>
                                     <td>
                                       {"..." + txn.transaction_hash.slice(-10)}
@@ -260,6 +334,9 @@ class Home extends Component {
                       Clearing Node Current Block
                     </Card.Title>
                     <Card.Subtitle tag="h6" className="mb-2 text-muted">
+                      Block Waiting to be Cleared
+                    </Card.Subtitle>
+                    <Card.Text>
                       Block Hash:{" "}
                       {this.state.curr_clearing_node_block
                         ? "..." +
@@ -267,17 +344,8 @@ class Home extends Component {
                             -10
                           )
                         : " "}
-                    </Card.Subtitle>
-                    <Card.Text>
-                      Solution Hash:{" "}
-                      {this.state.curr_clearing_node_block
-                        ? "..." +
-                          this.state.curr_clearing_node_block.solution_hash.slice(
-                            -10
-                          )
-                        : " "}
                     </Card.Text>
-                    <Table striped bordered responsive size="sm">
+                    <Table hover striped bordered responsive size="sm">
                       <thead>
                         <tr>
                           <th>#</th>
@@ -293,7 +361,7 @@ class Home extends Component {
                           ? this.state.curr_clearing_node_block.confirmed_transactions.map(
                               function (txn, index) {
                                 return (
-                                  <tr>
+                                  <tr key={index}>
                                     <td>{txn.transaction_index}</td>
                                     <td>
                                       {"..." + txn.transaction_hash.slice(-10)}
@@ -325,24 +393,9 @@ class Home extends Component {
                   <Card.Body>
                     <Card.Title tag="h5">Mining Node Current Block</Card.Title>
                     <Card.Subtitle tag="h6" className="mb-2 text-muted">
-                      Block Hash:{" "}
-                      {this.state.curr_mining_node_block
-                        ? "..." +
-                          this.state.curr_mining_node_block.block_hash.slice(
-                            -10
-                          )
-                        : " "}
+                      Transactions Waiting to be mined
                     </Card.Subtitle>
-                    <Card.Text>
-                      Solution Hash:{" "}
-                      {this.state.curr_mining_node_block
-                        ? "..." +
-                          this.state.curr_mining_node_block.solution_hash.slice(
-                            -10
-                          )
-                        : " "}
-                    </Card.Text>
-                    <Table striped bordered responsive size="sm">
+                    <Table hover striped bordered responsive size="sm">
                       <thead>
                         <tr>
                           <th>#</th>
@@ -355,30 +408,31 @@ class Home extends Component {
                       </thead>
                       <tbody>
                         {this.state.curr_mining_node_block
-                          ? this.state.curr_mining_node_block.confirmed_transactions.map(
-                              function (txn, index) {
-                                return (
-                                  <tr>
-                                    <td>{txn.transaction_index}</td>
-                                    <td>
-                                      {"..." + txn.transaction_hash.slice(-10)}
-                                    </td>
-                                    <td>{txn.status}</td>
-                                    <td>{txn.sender}</td>
-                                    <td>
-                                      {txn.amount != null
-                                        ? txn.amount
-                                        : "Not yet disclosed"}
-                                    </td>
-                                    <td>
-                                      {txn.destination
-                                        ? txn.destination
-                                        : "Not yet disclosed"}
-                                    </td>
-                                  </tr>
-                                );
-                              }
-                            )
+                          ? this.state.curr_mining_node_block.map(function (
+                              txn,
+                              index
+                            ) {
+                              return (
+                                <tr key={index}>
+                                  <td>.</td>
+                                  <td>
+                                    {"..." + txn.transaction_hash.slice(-10)}
+                                  </td>
+                                  <td>{txn.status}</td>
+                                  <td>{txn.sender}</td>
+                                  <td>
+                                    {txn.amount != null
+                                      ? txn.amount
+                                      : "Not yet disclosed"}
+                                  </td>
+                                  <td>
+                                    {txn.destination
+                                      ? txn.destination
+                                      : "Not yet disclosed"}
+                                  </td>
+                                </tr>
+                              );
+                            })
                           : null}
                       </tbody>
                     </Table>
@@ -397,8 +451,10 @@ class Home extends Component {
               <Row>
                 <Col>
                   <Form.Group className="mb-3" controlId="txAmount">
-                    <Form.Label>Amount</Form.Label>
-                    <Form.Control type="email" placeholder="Enter Amount" />
+                    <Form.Label>
+                      Amount (Your Balance: {this.state.balance})
+                    </Form.Label>
+                    <Form.Control type="amount" placeholder="Enter Amount" />
                     <Form.Text className="text-muted">
                       Amount to transfer exclusive of fees.
                     </Form.Text>
@@ -412,7 +468,8 @@ class Home extends Component {
                       placeholder="Your Base 64 Destination"
                     />
                     <Form.Text className="text-muted">
-                      This is your target destination's base64 address
+                      This is your target destination's address. Addresses are
+                      the base64 encoded SHA256 hash of their public key.
                     </Form.Text>
                   </Form.Group>
                 </Col>
@@ -421,7 +478,7 @@ class Home extends Component {
                     <Form.Label>Transaction Fee</Form.Label>
                     <Form.Control type="txFee" placeholder="0" />
                     <Form.Text className="text-muted">
-                      This is your bidded transaction fee bid.
+                      This is your transaction fee bid.
                     </Form.Text>
                   </Form.Group>
                 </Col>
@@ -434,6 +491,13 @@ class Home extends Component {
                     Please paste in your private key. Even though your key will
                     never leave this browser window, please do not use any
                     sensitive keys for our test.
+                    <Button
+                      variant="outline-primary"
+                      size="sm"
+                      onClick={this.onUseOurKeyClicked}
+                    >
+                      Use Our Key
+                    </Button>{" "}
                   </Form.Text>
                 </Form.Group>
               </Row>
@@ -476,7 +540,8 @@ class Home extends Component {
                     />
                     <Form.Text className="text-muted">
                       This is a one time nonce that is must always be higher
-                      than your last transaction.
+                      than your last transaction. We auto-populate the next
+                      nonce on the chain.
                     </Form.Text>
                   </Form.Group>
                 </Col>
@@ -521,11 +586,27 @@ class Home extends Component {
               >
                 Submit
               </Button>
+              <Row>
+                <Col width="80%">
+                  <Alert
+                    variant={this.state.alertVariant}
+                    show={this.state.showAlert}
+                  >
+                    {this.state.alertMessage}
+                  </Alert>
+                </Col>
+              </Row>
             </Container>
           </Form>
         </div>
       </div>
     );
+  }
+
+  onUseOurKeyClicked() {
+    const inputElement = document.getElementById("keyTextInput");
+    inputElement.value =
+      "-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEAyri5U43kBpNJIIC4qbO3WfkC9lBOokHGfUSk7FjYFvc6ehA2\nxog1AdwRn0750C0Fj6ypEzRvz+8LT434ab5V6N3UZF4cEvzg67xHsRN3n0htpIUd\nCzBwNl2Bt8oUJklhM6LDL7DBfTtq5KtBZGyvPHjIfhft9nIUbJu8H4Peapg8SPVb\nEqkfboEgNQCIq8fbiS2CHWunLU9OViJSHG8C7Sp3FO/43s+e2k86DqBBsqOsjMRe\nWBOYMaX+OFHIVY35ezclKY1B75vz5M5SjA21UPM6sy+fyGe5pwxI9s0/Q4D/dRlN\nMXY/c/p1mcRjB4CzRLMM50jj7nrjwshmJWri3wIDAQABAoIBAA4Uloq/KD9sq3+e\ncTUYTnvpV9NT8KJEf0zkH7Bq21d9BIrF5YgUndnrNy4hhih3eBNqorO6yKlgqSB1\nc/OkTMNH5SCziK+o8NZu1WvvNjfSCAuNU18bli+wfvoNBylBn4a+n2AInufb4KjR\nXFFlWyaQHRzk/JpJgjGo/4AQ4Ln2iSllVKhGGzV4LIWeP4VYJrXxolG2horJHOUV\nTnmqBB/MZajsUarXYZW4SpkGWLuERWWdKuepzsl3FfPtaEw1pP65z5+yUhYW+SGY\nApHzW/rRSzjmw0mFjP5+MKdj1NNfB5MkLKL4RCB2Lufip83Z4JY8a+cX1g77HzVQ\nZR5M0QECgYEA/GPX4Ht+c9MWTIP79qPKehmEKFtsaMqi9TvBFuiXBV+IQ9dUVU+f\n7nWQtMt+cvHDeGTwEvFHaOyejoKNxS9E2CUAQT5ngWWxcFPD148Wi6yYzZGOEOmN\nChzu0fTfIAzJX/cCg5sbx9Hr3C9yxphHalckS0Rq8Xj4xAezNcu8+/ECgYEAzZ8D\nflMTFDxLq8YCCCfztFO/YasBB2wkCut3E6sK9HP1k6ws0JkGf4Qh7urla6r/pW1r\n4sAQqI/Vh2LK+SkZ0ls7CEbR99rXNiZY+xpTgtO/UR0FM/jm6rNT88TwlZXhv8Od\nUtvQZSVNLDH98eOoDRVRcrQ0Cl7yQP/xDyFU288CgYEA4dsbORhqHY4dW1WU6a7D\nJ6aj3FWL2u7TCy9w6GY1lypZT5RnNHyvuv3cA95ChuwQpzF0oQ7nf16XuSHdakKV\nkfLymnAUwffV5JYhIEo8u7s1dmg1wK6vdwhTMvG1pgGrR0RNLKZmIteZAI45YLyu\n09utb+mG5hYCT7IwTgjHUpECgYEAmdCm61u3vP5x2Nhxcqp4SuAPHT+vsF68A5Mq\n64Ka2kzYWxSEHbMrQj6Up8X9wvIS9SwKdYAZtg6KvBEyJvsQ/uQSH9nifdeuACrl\ni0mhSQ+fYU0lNECwdMebOJKNKkkJq8roKDCZDuC9fx8SiV00vDzDRdv5xfxKmkcb\ni6bydM8CgYA/zibVRuWlhGViEYA66jHADOBa13MAdkfEXfmnTFAZcWFXlv25F/0A\nUQSt9An4trjv0ONO00D9XC5bZFkGyq+0wKRWjFsvNmg0OmDXv/2kQ8s+1HUI6+mq\nLN7AFRBzKCHUO5HzvmXLCEELVcDMtRdTyBXgOqNIwN0nxxcD+mg5wQ==\n-----END RSA PRIVATE KEY-----";
   }
 }
 

@@ -1,7 +1,7 @@
 import React, { Component } from "react";
 import logo from "./titlewologo.png";
 import logoImg from "./logo.png";
-import { Container, Row, Col } from "react-bootstrap";
+import { Container, Row, Col, Button } from "react-bootstrap";
 
 import "./style.css";
 // import Block from "./../Block";
@@ -20,6 +20,29 @@ class App extends Component {
               </Col>
               <Col md="auto">
                 <img src={logo} className="App-logo" alt="logo" />
+              </Col>
+            </Row>
+            <Row>
+              <Col>
+                <h1 className="tagline text-white">
+                  Next Generation Blockchain Testnet Explorer
+                </h1>
+              </Col>
+            </Row>
+
+            <Row>
+              <Col>
+                <h6 className="White-paper mb-2 text-white">
+                  If you are unfamiliar with our network or the work we are
+                  doing, check out our white paper here:
+                  <Button
+                    variant="outline-light"
+                    size="sm"
+                    href="https://www.stardust.finance/whitepaper"
+                  >
+                    White Paper
+                  </Button>
+                </h6>
               </Col>
             </Row>
           </Container>
