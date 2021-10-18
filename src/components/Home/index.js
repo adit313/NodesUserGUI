@@ -9,6 +9,7 @@ import {
   Col,
   Table,
 } from "react-bootstrap";
+
 let crypto;
 try {
   crypto = require("crypto");
@@ -40,11 +41,15 @@ class Home extends Component {
       showAlert: false,
       alertMessage: "",
       alertVariant: "danger",
+      isMining: false,
     };
 
     this.onPrepareBtnClick = this.onPrepareBtnClick.bind(this);
     this.onSubmitBtnClick = this.onSubmitBtnClick.bind(this);
     this.onUseOurKeyClicked = this.onUseOurKeyClicked.bind(this);
+    this.onMineClick = this.onMineClick.bind(this);
+    this.refreshData = this.refreshData.bind(this);
+    this.onRevealBtnClick = this.onRevealBtnClick.bind(this);
   }
 
   onPrepareBtnClick() {
@@ -127,7 +132,7 @@ class Home extends Component {
         )
           .then((response) => response.json())
           .then((data) => {
-            var balance = parseFloat(data["confirmed_balance"]);
+            var balance = data ? parseFloat(data["confirmed_balance"]) : "n/a";
             var nonce = 1;
             if (data && data["highest_nonce"]) {
               nonce = parseInt(data["highest_nonce"], 10) + 1;
@@ -197,16 +202,17 @@ class Home extends Component {
       nonce: this.state.nonce,
     };
 
-    fetch("https://mining.stardust.finance/new_transaction", {
+    fetch("https://commit.stardust.finance/new_transaction", {
       method: "POST",
       body: JSON.stringify(payload),
     })
       .then((response) => response.json())
       .then((data) => {
         this.setState({
-          alertMessage: data[0],
+          alertMessage: data,
           showAlert: true,
           alertVariant: "info",
+          submit_disabled: true,
         });
         fetch("https://mining.stardust.finance/unconfirmed_transactions/0")
           .then((response) => response.json())
@@ -215,6 +221,59 @@ class Home extends Component {
               curr_mining_node_block: data,
             })
           );
+      });
+  }
+
+  onRevealBtnClick() {
+    let forge = require("node-forge");
+    var md_transaction_hash = forge.md.sha256.create();
+    md_transaction_hash.update(
+      this.state.amount +
+        this.state.destination +
+        (this.state.nonce - 1) +
+        this.state.sender +
+        this.state.sender_public_key +
+        this.state.tx_fee
+    );
+
+    let temp = JSON.stringify(md_transaction_hash.digest().toHex());
+    let transaction_hash = JSON.parse(temp);
+
+    const sign = crypto.createSign("RSA-SHA256");
+    const inputElement = document.getElementById("keyTextInput");
+    sign.write(transaction_hash);
+    sign.end();
+    let sig = sign.sign(inputElement.value, "hex");
+
+    let payload = {
+      amount: this.state.amount,
+      destination: this.state.destination,
+      transaction_hash: transaction_hash,
+      sender: this.state.sender,
+      sender_public_key: this.state.sender_public_key,
+      sender_signature: sig,
+      tx_fee: this.state.tx_fee,
+      nonce: this.state.nonce - 1,
+    };
+
+    console.log(payload);
+    fetch("https://clearing.stardust.finance/append_information", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    })
+      .then((response) => {
+        console.log(response);
+        return response.json();
+      })
+      .then((data) => {
+        console.log(data);
+        this.setState({
+          alertMessage: data,
+          showAlert: true,
+          alertVariant: "info",
+          submit_disabled: true,
+        });
+        setTimeout(this.refreshData, 2000);
       });
   }
 
@@ -267,19 +326,14 @@ class Home extends Component {
                   <Card.Body>
                     <Card.Title tag="h5">Commit Node Current Block</Card.Title>
                     <Card.Subtitle tag="h6" className="mb-2 text-muted">
-                      Block Hash:{" "}
+                      This is the most recent block added to the chain. You can
+                      see all the transactions have a status of waiting
+                    </Card.Subtitle>
+                    <Card.Text>
+                      Most Recent Block Hash:{" "}
                       {this.state.curr_commit_node_block
                         ? "..." +
                           this.state.curr_commit_node_block.block_hash.slice(
-                            -10
-                          )
-                        : " "}
-                    </Card.Subtitle>
-                    <Card.Text>
-                      Solution Hash:{" "}
-                      {this.state.curr_commit_node_block
-                        ? "..." +
-                          this.state.curr_commit_node_block.solution_hash.slice(
                             -10
                           )
                         : " "}
@@ -334,10 +388,13 @@ class Home extends Component {
                       Clearing Node Current Block
                     </Card.Title>
                     <Card.Subtitle tag="h6" className="mb-2 text-muted">
-                      Block Waiting to be Cleared
+                      (In this prototype, our clearing window is only one block
+                      long, so the most recent block is the only open block. In
+                      later implementations, this will be fine-tuned for optimum
+                      performance.)
                     </Card.Subtitle>
                     <Card.Text>
-                      Block Hash:{" "}
+                      Hash of the Block Waiting to be Cleared:{" "}
                       {this.state.curr_clearing_node_block
                         ? "..." +
                           this.state.curr_clearing_node_block.block_hash.slice(
@@ -436,6 +493,17 @@ class Home extends Component {
                           : null}
                       </tbody>
                     </Table>
+                    {this.state.curr_mining_node_block &&
+                    this.state.curr_mining_node_block.length !== 0 ? (
+                      <Button
+                        variant="outline-dark"
+                        size="sm"
+                        onClick={this.onMineClick}
+                        disabled={this.state.isMining}
+                      >
+                        {this.state.isMining ? "Mining" : "Mine"}
+                      </Button>
+                    ) : null}
                   </Card.Body>
                 </Card>
               </Col>
@@ -541,7 +609,8 @@ class Home extends Component {
                     <Form.Text className="text-muted">
                       This is a one time nonce that is must always be higher
                       than your last transaction. We auto-populate the next
-                      nonce on the chain.
+                      nonce on the chain, or use your most recent nonce for
+                      appending information.
                     </Form.Text>
                   </Form.Group>
                 </Col>
@@ -586,6 +655,12 @@ class Home extends Component {
               >
                 Submit
               </Button>
+              <Button
+                onClick={this.onRevealBtnClick}
+                disabled={this.state.submit_disabled}
+              >
+                Submit Appended Data
+              </Button>
               <Row>
                 <Col width="80%">
                   <Alert
@@ -607,6 +682,43 @@ class Home extends Component {
     const inputElement = document.getElementById("keyTextInput");
     inputElement.value =
       "-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEAyri5U43kBpNJIIC4qbO3WfkC9lBOokHGfUSk7FjYFvc6ehA2\nxog1AdwRn0750C0Fj6ypEzRvz+8LT434ab5V6N3UZF4cEvzg67xHsRN3n0htpIUd\nCzBwNl2Bt8oUJklhM6LDL7DBfTtq5KtBZGyvPHjIfhft9nIUbJu8H4Peapg8SPVb\nEqkfboEgNQCIq8fbiS2CHWunLU9OViJSHG8C7Sp3FO/43s+e2k86DqBBsqOsjMRe\nWBOYMaX+OFHIVY35ezclKY1B75vz5M5SjA21UPM6sy+fyGe5pwxI9s0/Q4D/dRlN\nMXY/c/p1mcRjB4CzRLMM50jj7nrjwshmJWri3wIDAQABAoIBAA4Uloq/KD9sq3+e\ncTUYTnvpV9NT8KJEf0zkH7Bq21d9BIrF5YgUndnrNy4hhih3eBNqorO6yKlgqSB1\nc/OkTMNH5SCziK+o8NZu1WvvNjfSCAuNU18bli+wfvoNBylBn4a+n2AInufb4KjR\nXFFlWyaQHRzk/JpJgjGo/4AQ4Ln2iSllVKhGGzV4LIWeP4VYJrXxolG2horJHOUV\nTnmqBB/MZajsUarXYZW4SpkGWLuERWWdKuepzsl3FfPtaEw1pP65z5+yUhYW+SGY\nApHzW/rRSzjmw0mFjP5+MKdj1NNfB5MkLKL4RCB2Lufip83Z4JY8a+cX1g77HzVQ\nZR5M0QECgYEA/GPX4Ht+c9MWTIP79qPKehmEKFtsaMqi9TvBFuiXBV+IQ9dUVU+f\n7nWQtMt+cvHDeGTwEvFHaOyejoKNxS9E2CUAQT5ngWWxcFPD148Wi6yYzZGOEOmN\nChzu0fTfIAzJX/cCg5sbx9Hr3C9yxphHalckS0Rq8Xj4xAezNcu8+/ECgYEAzZ8D\nflMTFDxLq8YCCCfztFO/YasBB2wkCut3E6sK9HP1k6ws0JkGf4Qh7urla6r/pW1r\n4sAQqI/Vh2LK+SkZ0ls7CEbR99rXNiZY+xpTgtO/UR0FM/jm6rNT88TwlZXhv8Od\nUtvQZSVNLDH98eOoDRVRcrQ0Cl7yQP/xDyFU288CgYEA4dsbORhqHY4dW1WU6a7D\nJ6aj3FWL2u7TCy9w6GY1lypZT5RnNHyvuv3cA95ChuwQpzF0oQ7nf16XuSHdakKV\nkfLymnAUwffV5JYhIEo8u7s1dmg1wK6vdwhTMvG1pgGrR0RNLKZmIteZAI45YLyu\n09utb+mG5hYCT7IwTgjHUpECgYEAmdCm61u3vP5x2Nhxcqp4SuAPHT+vsF68A5Mq\n64Ka2kzYWxSEHbMrQj6Up8X9wvIS9SwKdYAZtg6KvBEyJvsQ/uQSH9nifdeuACrl\ni0mhSQ+fYU0lNECwdMebOJKNKkkJq8roKDCZDuC9fx8SiV00vDzDRdv5xfxKmkcb\ni6bydM8CgYA/zibVRuWlhGViEYA66jHADOBa13MAdkfEXfmnTFAZcWFXlv25F/0A\nUQSt9An4trjv0ONO00D9XC5bZFkGyq+0wKRWjFsvNmg0OmDXv/2kQ8s+1HUI6+mq\nLN7AFRBzKCHUO5HzvmXLCEELVcDMtRdTyBXgOqNIwN0nxxcD+mg5wQ==\n-----END RSA PRIVATE KEY-----";
+  }
+
+  onMineClick() {
+    this.setState({
+      isMining: true,
+    });
+
+    fetch("https://mining.stardust.finance/mine").then((response) => {
+      setTimeout(this.refreshData, 2000);
+    });
+  }
+
+  refreshData() {
+    fetch("https://commit.stardust.finance/current_block")
+      .then((response) => response.json())
+      .then((data) =>
+        this.setState({
+          curr_commit_node_block: data,
+        })
+      );
+    fetch("https://mining.stardust.finance/unconfirmed_transactions")
+      .then((response) => response.json())
+      .then((data) =>
+        this.setState({
+          curr_mining_node_block: data,
+        })
+      );
+    fetch("https://clearing.stardust.finance/open_blocks")
+      .then((response) => response.json())
+      .then((data) =>
+        this.setState({
+          curr_clearing_node_block: data[0],
+        })
+      );
+    this.setState({
+      isMining: false,
+    });
   }
 }
 
