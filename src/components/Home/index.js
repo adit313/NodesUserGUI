@@ -1,3 +1,5 @@
+import { nullLiteralTypeAnnotation } from "@babel/types";
+import { copyFileSync } from "fs";
 import React, { Component } from "react";
 import {
   Alert,
@@ -8,6 +10,7 @@ import {
   Row,
   Col,
   Table,
+  Modal,
 } from "react-bootstrap";
 
 let crypto;
@@ -27,6 +30,7 @@ class Home extends Component {
       curr_commit_node_block: null,
       curr_mining_node_block: null,
       curr_clearing_node_block: null,
+      curr_closed_block: null,
       submit_disabled: true,
       show_alert: false,
       amount: null,
@@ -42,6 +46,9 @@ class Home extends Component {
       alertMessage: "",
       alertVariant: "danger",
       isMining: false,
+      showModal: false,
+      yourPrivateKey: "",
+      loadingNewKey: false,
     };
 
     this.onPrepareBtnClick = this.onPrepareBtnClick.bind(this);
@@ -50,6 +57,10 @@ class Home extends Component {
     this.onMineClick = this.onMineClick.bind(this);
     this.refreshData = this.refreshData.bind(this);
     this.onRevealBtnClick = this.onRevealBtnClick.bind(this);
+    this.onUseOurAddressClicked = this.onUseOurAddressClicked.bind(this);
+    this.onGetAddressClicked = this.onGetAddressClicked.bind(this);
+    this.handleModalClose = this.handleModalClose.bind(this);
+    this.newKeysGenerated = this.newKeysGenerated.bind(this);
   }
 
   onPrepareBtnClick() {
@@ -164,21 +175,39 @@ class Home extends Component {
 
             sign.write(transaction_hash);
             sign.end();
+            inputElement.value = pki.privateKeyToPem(privateKey);
             let sig = sign.sign(inputElement.value, "hex");
-            this.setState({
-              amount: hash_amount_string,
-              balance: balance,
-              destination: destination,
-              transaction_hash: transaction_hash,
-              sender: sender,
-              sender_public_key: sender_public_key,
-              sender_signature: sig,
-              tx_fee: hash_tx_fee_string,
-              nonce: nonce,
-              submit_disabled: false,
-              alertMessage: "",
-              showAlert: false,
-            });
+            if (balance === "n/a" || amount > balance) {
+              this.setState({
+                amount: hash_amount_string,
+                balance: balance,
+                destination: destination,
+                transaction_hash: transaction_hash,
+                sender: sender,
+                sender_public_key: sender_public_key,
+                sender_signature: sig,
+                tx_fee: hash_tx_fee_string,
+                nonce: nonce,
+                submit_disabled: true,
+                alertMessage: "Insufficient Balance",
+                showAlert: true,
+              });
+            } else {
+              this.setState({
+                amount: hash_amount_string,
+                balance: balance,
+                destination: destination,
+                transaction_hash: transaction_hash,
+                sender: sender,
+                sender_public_key: sender_public_key,
+                sender_signature: sig,
+                tx_fee: hash_tx_fee_string,
+                nonce: nonce,
+                submit_disabled: false,
+                alertMessage: "",
+                showAlert: false,
+              });
+            }
           });
       } catch (e) {
         this.setState({
@@ -299,6 +328,13 @@ class Home extends Component {
           curr_clearing_node_block: data[0],
         })
       );
+    fetch("https://commit.stardust.finance/closed_block")
+      .then((response) => response.json())
+      .then((data) =>
+        this.setState({
+          curr_closed_block: data,
+        })
+      );
   }
 
   render() {
@@ -324,7 +360,7 @@ class Home extends Component {
               <Col>
                 <Card className="box">
                   <Card.Body>
-                    <Card.Title tag="h5">Commit Node Current Block</Card.Title>
+                    <Card.Title tag="h5">Commit Node Blocks</Card.Title>
                     <Card.Subtitle tag="h6" className="mb-2 text-muted">
                       This is the most recent block added to the chain. You can
                       see all the transactions have a status of waiting
@@ -332,10 +368,12 @@ class Home extends Component {
                     <Card.Text>
                       Most Recent Block Hash:{" "}
                       {this.state.curr_commit_node_block
-                        ? "..." +
-                          this.state.curr_commit_node_block.block_hash.slice(
-                            -10
-                          )
+                        ? this.state.curr_commit_node_block.block_hash
+                        : " "}
+                      <br />
+                      Block Height:{" "}
+                      {this.state.curr_commit_node_block
+                        ? this.state.curr_commit_node_block.block_height
                         : " "}
                     </Card.Text>
                     <Table hover striped bordered responsive size="sm">
@@ -356,20 +394,72 @@ class Home extends Component {
                                 return (
                                   <tr key={index}>
                                     <td>{txn.transaction_index}</td>
-                                    <td>
-                                      {"..." + txn.transaction_hash.slice(-10)}
-                                    </td>
+                                    <td>{txn.transaction_hash}</td>
                                     <td>{txn.status}</td>
                                     <td>{txn.sender}</td>
                                     <td>
                                       {txn.amount != null
                                         ? txn.amount
-                                        : "Not yet disclosed"}
+                                        : "In Clearing"}
                                     </td>
                                     <td>
                                       {txn.destination
                                         ? txn.destination
-                                        : "Not yet disclosed"}
+                                        : "In Clearing"}
+                                    </td>
+                                  </tr>
+                                );
+                              }
+                            )
+                          : null}
+                      </tbody>
+                    </Table>
+                    <hr />
+                    <Card.Subtitle tag="h6" className="mb-2 text-muted">
+                      This is the most recent closed block on the chain. You can
+                      see all the transactions were either cleared or failed.
+                    </Card.Subtitle>
+                    <Card.Text>
+                      Most Recent Block Hash:{" "}
+                      {this.state.curr_closed_block
+                        ? this.state.curr_closed_block.block_hash
+                        : " "}
+                      <br />
+                      Block Height:{" "}
+                      {this.state.curr_closed_block
+                        ? this.state.curr_closed_block.block_height
+                        : " "}
+                    </Card.Text>
+                    <Table hover striped bordered responsive size="sm">
+                      <thead>
+                        <tr>
+                          <th>#</th>
+                          <th>Hash</th>
+                          <th>Status</th>
+                          <th>Source</th>
+                          <th>Amount</th>
+                          <th>Destination</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {this.state.curr_closed_block
+                          ? this.state.curr_closed_block.confirmed_transactions.map(
+                              function (txn, index) {
+                                return (
+                                  <tr key={index}>
+                                    <td>{txn.transaction_index}</td>
+                                    <td>{txn.transaction_hash}</td>
+                                    <td>{txn.status}</td>
+                                    <td>{txn.sender}</td>
+                                    <td>
+                                      {txn.amount != null
+                                        ? txn.amount
+                                        : "In Clearing"}
+                                    </td>
+                                    <td>
+                                      {txn.destination
+                                        ? txn.destination
+                                        : "In Clearing"}
                                     </td>
                                   </tr>
                                 );
@@ -396,10 +486,12 @@ class Home extends Component {
                     <Card.Text>
                       Hash of the Block Waiting to be Cleared:{" "}
                       {this.state.curr_clearing_node_block
-                        ? "..." +
-                          this.state.curr_clearing_node_block.block_hash.slice(
-                            -10
-                          )
+                        ? this.state.curr_clearing_node_block.block_hash
+                        : " "}
+                      <br />
+                      Block Height:{" "}
+                      {this.state.curr_clearing_node_block
+                        ? this.state.curr_clearing_node_block.block_height
                         : " "}
                     </Card.Text>
                     <Table hover striped bordered responsive size="sm">
@@ -420,9 +512,7 @@ class Home extends Component {
                                 return (
                                   <tr key={index}>
                                     <td>{txn.transaction_index}</td>
-                                    <td>
-                                      {"..." + txn.transaction_hash.slice(-10)}
-                                    </td>
+                                    <td>{txn.transaction_hash}</td>
                                     <td>{txn.status}</td>
                                     <td>{txn.sender}</td>
                                     <td>
@@ -472,9 +562,7 @@ class Home extends Component {
                               return (
                                 <tr key={index}>
                                   <td>.</td>
-                                  <td>
-                                    {"..." + txn.transaction_hash.slice(-10)}
-                                  </td>
+                                  <td>{txn.transaction_hash}</td>
                                   <td>{txn.status}</td>
                                   <td>{txn.sender}</td>
                                   <td>
@@ -539,6 +627,24 @@ class Home extends Component {
                       This is your target destination's address. Addresses are
                       the base64 encoded SHA256 hash of their public key.
                     </Form.Text>
+                    <br />
+                    <Button
+                      variant="outline-primary"
+                      size="sm"
+                      onClick={this.onUseOurAddressClicked}
+                    >
+                      Use our Primary Test Address
+                    </Button>
+                    <Button
+                      variant="outline-primary"
+                      size="sm"
+                      onClick={this.onGetAddressClicked}
+                      disabled={this.state.loadingNewKey}
+                    >
+                      {!this.state.loadingNewKey
+                        ? "Get a new Address"
+                        : "Loading.."}
+                    </Button>
                   </Form.Group>
                 </Col>
                 <Col>
@@ -553,7 +659,11 @@ class Home extends Component {
               </Row>
               <Row>
                 <Form.Group className="mb-3" controlId="keyTextInput">
-                  <Form.Label>Your Private Key</Form.Label>
+                  <Form.Label>
+                    The Private Key of the Sender Address (We will automatically
+                    calculate your sender address and public key from your
+                    private key)
+                  </Form.Label>
                   <Form.Control as="textarea" rows={10} />
                   <Form.Text className="text-muted">
                     Please paste in your private key. Even though your key will
@@ -564,7 +674,7 @@ class Home extends Component {
                       size="sm"
                       onClick={this.onUseOurKeyClicked}
                     >
-                      Use Our Key
+                      Use the Key for our Primary Test Address
                     </Button>{" "}
                   </Form.Text>
                 </Form.Group>
@@ -673,6 +783,29 @@ class Home extends Component {
               </Row>
             </Container>
           </Form>
+          <Modal
+            show={this.state.showModal}
+            onHide={this.handleModalClose}
+            backdrop="static"
+            scrollable="true"
+            width="90%"
+          >
+            <Modal.Header>
+              <Modal.Title>Your Private key </Modal.Title>
+            </Modal.Header>
+            <Modal.Body>
+              This is your Private key, you'll need this to spend the tokens at
+              the associated address. In production please keep it very safe!
+              Don't worry about losing it now as we regularly reset our testnet.
+              <hr />
+              {this.state.yourPrivateKey}
+            </Modal.Body>
+            <Modal.Footer>
+              <Button variant="primary" onClick={this.handleModalClose}>
+                Understood
+              </Button>
+            </Modal.Footer>
+          </Modal>
         </div>
       </div>
     );
@@ -691,6 +824,54 @@ class Home extends Component {
 
     fetch("https://mining.stardust.finance/mine").then((response) => {
       setTimeout(this.refreshData, 2000);
+    });
+  }
+
+  onUseOurAddressClicked() {
+    const tx_destination_input = document.getElementById("txDestination");
+    tx_destination_input.value = "0aKRMjy4GmRKZ2Ui4Zc8z9fqYOLTzwu9QD/JkGLd5Qw=";
+  }
+
+  onGetAddressClicked() {
+    let forge = require("node-forge");
+    var rsa = forge.pki.rsa;
+    this.setState({
+      loadingNewKey: true,
+    });
+
+    rsa.generateKeyPair({ bits: 2048, workers: -1 }, this.newKeysGenerated);
+  }
+
+  newKeysGenerated(err, keypair) {
+    const tx_destination_input = document.getElementById("txDestination");
+    let forge = require("node-forge");
+    let pki = require("node-forge").pki;
+
+    var md2 = forge.md.sha256.create();
+    let sender_private_key = pki.privateKeyToPem(keypair.privateKey);
+    let public_key_string = JSON.stringify(
+      pki.publicKeyToPem(keypair.publicKey)
+    ).replaceAll("\\r", "");
+    public_key_string = JSON.parse(public_key_string);
+    md2.update(public_key_string);
+    let sender_public_key = public_key_string;
+    let sender = Buffer.from(md2.digest().toHex(), "hex").toString("base64");
+    console.log(sender_private_key);
+    console.log(sender_public_key);
+    console.log(sender);
+    tx_destination_input.value = sender;
+    this.setState({
+      yourPrivateKey: sender_private_key,
+      showModal: true,
+      loadingNewKey: false,
+    });
+  }
+
+  handleModalClose() {
+    this.setState({
+      yourPrivateKey: "",
+      showModal: false,
+      loadingNewKey: false,
     });
   }
 
@@ -714,6 +895,13 @@ class Home extends Component {
       .then((data) =>
         this.setState({
           curr_clearing_node_block: data[0],
+        })
+      );
+    fetch("https://commit.stardust.finance/closed_block")
+      .then((response) => response.json())
+      .then((data) =>
+        this.setState({
+          curr_closed_block: data,
         })
       );
     this.setState({
