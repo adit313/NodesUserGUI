@@ -1,5 +1,3 @@
-import { nullLiteralTypeAnnotation } from "@babel/types";
-import { copyFileSync } from "fs";
 import React, { Component } from "react";
 import {
   Alert,
@@ -11,7 +9,10 @@ import {
   Col,
   Table,
   Modal,
+  Spinner,
 } from "react-bootstrap";
+import Steps from "../Steps";
+import FAQsContainer from "../Steps/FAQsContainer.js";
 
 let crypto;
 try {
@@ -344,6 +345,12 @@ class Home extends Component {
           <Container fluid>
             <Row>
               <Col>
+                <h1 className="Tagline">Executive Summary</h1>
+                <FAQsContainer />
+              </Col>
+            </Row>
+            <Row>
+              <Col>
                 <h1 className="Tagline">Block Explorer</h1>
               </Col>
             </Row>
@@ -584,12 +591,16 @@ class Home extends Component {
                     {this.state.curr_mining_node_block &&
                     this.state.curr_mining_node_block.length !== 0 ? (
                       <Button
-                        variant="outline-dark"
+                        variant="outline-secondary"
                         size="sm"
                         onClick={this.onMineClick}
                         disabled={this.state.isMining}
                       >
-                        {this.state.isMining ? "Mining" : "Mine"}
+                        {this.state.isMining ? (
+                          <Spinner animation="border" variant="secondary" />
+                        ) : (
+                          "Mine"
+                        )}
                       </Button>
                     ) : null}
                   </Card.Body>
@@ -629,14 +640,14 @@ class Home extends Component {
                     </Form.Text>
                     <br />
                     <Button
-                      variant="outline-primary"
+                      variant="outline-secondary"
                       size="sm"
                       onClick={this.onUseOurAddressClicked}
                     >
                       Use our Primary Test Address
                     </Button>
                     <Button
-                      variant="outline-primary"
+                      variant="outline-secondary"
                       size="sm"
                       onClick={this.onGetAddressClicked}
                       disabled={this.state.loadingNewKey}
@@ -670,7 +681,7 @@ class Home extends Component {
                     never leave this browser window, please do not use any
                     sensitive keys for our test.
                     <Button
-                      variant="outline-primary"
+                      variant="outline-secondary"
                       size="sm"
                       onClick={this.onUseOurKeyClicked}
                     >
@@ -788,7 +799,7 @@ class Home extends Component {
             onHide={this.handleModalClose}
             backdrop="static"
             scrollable="true"
-            width="90%"
+            size="lg"
           >
             <Modal.Header>
               <Modal.Title>Your Private key </Modal.Title>

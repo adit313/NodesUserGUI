@@ -1,0 +1,104 @@
+$theme-colors: (
+  "primary": #cdc2ca,
+  "secondary": #3b3d40,
+  "info": tomato,
+  "danger": teal,
+  "light": white,
+);
+
+.accordion-content {
+  background-color: #e4e4e4 !important;
+  border-color: black;
+  border-radius: 15px;
+  padding: 20px;
+}
+
+.App-logo {
+  height: 10mm;
+}
+
+@import "~bootstrap/scss/bootstrap.scss";
+
+// .accordion-item-custom {
+//   border-color: #ffffffff;
+// }
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+    "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
+    monospace;
+}
+
+.box {
+  margin: 10px;
+  padding: 20px;
+  border: 2px solid #3b3d40;
+  text-align: center;
+  color: #3b3d40;
+}
+
+#h2 {
+  margin-top: 10mm;
+  margin-bottom: 10mm;
+}
+
+.tagline {
+  padding-top: 5mm;
+}
+
+.form {
+  margin: auto;
+  margin-top: 10mm;
+  margin-bottom: 10mm;
+  width: 90%;
+  border-style: solid;
+  border-width: medium;
+  border-color: #3b3d4050;
+  border-radius: 15px;
+}
+
+.btn {
+  margin: 10px;
+}
+
+.form-title {
+  margin: 30px;
+}
+
+.App {
+  text-align: center;
+}
+
+.App-logo {
+  padding-top: 5mm;
+  height: 24mm;
+  pointer-events: none;
+}
+
+.white-paper-figure {
+  padding-top: 5mm;
+  color: white;
+}
+
+.App-header {
+  background-color: #3b3d40;
+  height: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin);
+  color: white;
+}
+
+.Tagline {
+  margin-top: 20px;
+}
