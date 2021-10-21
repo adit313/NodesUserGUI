@@ -784,7 +784,7 @@ class Home extends Component {
                 variant="secondary"
                 disabled={this.state.submit_disabled}
               >
-                Appended Data
+                Append Data
               </Button>
               <Row>
                 <Col width="80%">
