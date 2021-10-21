@@ -365,7 +365,7 @@ class Home extends Component {
           <Container fluid>
             <Row>
               <Col>
-                <Card className="box">
+                <Card className="box commit-card">
                   <Card.Body>
                     <Card.Title tag="h5">Commit Node Blocks</Card.Title>
                     <Card.Subtitle tag="h6" className="mb-2 text-muted">
@@ -479,7 +479,7 @@ class Home extends Component {
                 </Card>
               </Col>
               <Col>
-                <Card className="box">
+                <Card className="box clearing-card">
                   <Card.Body>
                     <Card.Title tag="h5">
                       Clearing Node Current Block
@@ -543,7 +543,7 @@ class Home extends Component {
                 </Card>
               </Col>
               <Col>
-                <Card className="box">
+                <Card className="box mining-card">
                   <Card.Body>
                     <Card.Title tag="h5">Mining Node Current Block</Card.Title>
                     <Card.Subtitle tag="h6" className="mb-2 text-muted">

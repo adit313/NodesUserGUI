@@ -4,7 +4,6 @@ import logoImg from "./logo.png";
 import { Container, Row, Col, Button, Image, Figure } from "react-bootstrap";
 import whitePaperImg from "./whitePaper.png";
 
-import "./style.scss";
 // import Block from "./../Block";
 import Home from "./../Home";
 import { BrowserRouter as Router, Route } from "react-router-dom";

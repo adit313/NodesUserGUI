@@ -6,7 +6,7 @@ const Accordion = ({ title, content, className }) => {
   const [isActive, setIsActive] = useState(false);
 
   return (
-    <ListGroup.Item as="li" className="accordion-item-custom">
+    <ListGroup.Item as="li">
       <div className="accordion-title" onClick={() => setIsActive(!isActive)}>
         <div>
           {isActive ? <h5>{title + "  -"}</h5> : <h6>{title + "  +"}</h6>}

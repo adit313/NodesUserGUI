@@ -8,11 +8,11 @@ import FAQs from "./FAQs.js";
 const FAQsContainer = () => {
   const accordionData = [
     {
-      title: "Summary",
+      title: "About the New Blockchain",
       content: <FAQs />,
     },
     {
-      title: "How to Perform a Transaction",
+      title: "Test out the Explorer: How to Perform a Transaction",
       content: <Steps />,
     },
   ];
