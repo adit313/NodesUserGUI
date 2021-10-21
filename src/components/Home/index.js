@@ -769,18 +769,22 @@ class Home extends Component {
                   </Form.Group>
                 </Col>
               </Row>
-              <Button onClick={this.onPrepareBtnClick}>Prepare</Button>{" "}
+              <Button onClick={this.onPrepareBtnClick} variant="secondary">
+                Prepare
+              </Button>{" "}
               <Button
                 onClick={this.onSubmitBtnClick}
+                variant="secondary"
                 disabled={this.state.submit_disabled}
               >
-                Submit
+                Submit New Transaction
               </Button>
               <Button
                 onClick={this.onRevealBtnClick}
+                variant="secondary"
                 disabled={this.state.submit_disabled}
               >
-                Submit Appended Data
+                Appended Data
               </Button>
               <Row>
                 <Col width="80%">
